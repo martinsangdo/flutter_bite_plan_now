@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import '../core/theme.dart';
 import '../models/recipe.dart';
 import '../providers/providers.dart';
+import '../widgets/rewarded_prompt.dart';
 
 class DeckScreen extends ConsumerStatefulWidget {
   const DeckScreen({super.key});
@@ -29,6 +30,8 @@ class _DeckScreenState extends ConsumerState<DeckScreen> {
   }
 
   Future<void> _reload() async {
+    if (!await ensureQuestionQuota(context, ref)) return;
+    if (!mounted) return;
     await ref.read(adsProvider).onDeckReload();
     if (!mounted) return;
     setState(() => _finished = false);

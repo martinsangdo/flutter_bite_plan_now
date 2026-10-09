@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../core/config.dart';
 import '../core/theme.dart';
 import '../providers/providers.dart';
+import '../widgets/rewarded_prompt.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -24,6 +25,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   @override
   void initState() {
     super.initState();
+    ref.read(adsProvider); // starts loading the rewarded ad
     _initCamera();
   }
 
@@ -63,15 +65,19 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
   Future<void> _capture() async {
     final cam = _camera;
     if (cam == null || _busy) return;
-    if (ref.read(scansUsedProvider) >= kMaxScansPerSession) {
-      _snack('Scan limit reached ($kMaxScansPerSession per session).');
+    final quota = ref.read(scanQuotaProvider);
+    if (quota.dailyLeft <= 0) {
+      _snack(
+        'Daily scan limit reached ($kMaxScansPerDay). Try again tomorrow.',
+      );
       return;
     }
+    if (quota.canEarn) return _offerRewardedScan();
     setState(() => _busy = true);
     String? path;
     try {
       path = (await cam.takePicture()).path;
-      ref.read(scansUsedProvider.notifier).record();
+      ref.read(scanQuotaProvider.notifier).record();
       final result = await ref.read(visionServiceProvider).scan(path);
       if (!mounted) return;
       if (result.ingredients.isEmpty) {
@@ -88,13 +94,27 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     }
   }
 
+  /// Free scans are used up: trade a rewarded ad for one more photo.
+  Future<void> _offerRewardedScan() async {
+    final earned = await watchAdFor(
+      context,
+      ref,
+      title: 'Scan another photo?',
+      message: 'Watch a short ad to unlock 1 more scan.',
+    );
+    if (!earned || !mounted) return;
+    ref.read(scanQuotaProvider.notifier).grantBonus();
+    _snack('Scan unlocked. Tap to capture.');
+  }
+
   void _snack(String m) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   @override
   Widget build(BuildContext context) {
     final cam = _camera;
-    final left = kMaxScansPerSession - ref.watch(scansUsedProvider);
+    final quota = ref.watch(scanQuotaProvider);
+    final left = quota.scansLeft;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -136,8 +156,10 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                           Text(
                             _busy
                                 ? 'Analysing…'
-                                : left <= 0
-                                ? 'Scan limit reached'
+                                : quota.dailyLeft <= 0
+                                ? 'Daily scan limit reached'
+                                : quota.canEarn
+                                ? 'Tap to watch an ad for 1 more scan'
                                 : 'Frame your ingredients and tap · $left left',
                             style: const TextStyle(
                               color: Colors.white,
@@ -161,7 +183,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
                               child: DecoratedBox(
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: _busy || left <= 0
+                                  color: _busy || quota.dailyLeft <= 0
                                       ? Colors.white38
                                       : AppColors.terracotta,
                                 ),

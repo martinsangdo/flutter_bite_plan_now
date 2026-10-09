@@ -11,6 +11,7 @@ import '../widgets/ad_banner.dart';
 import '../widgets/agent_sheet.dart';
 import '../widgets/glass.dart';
 import '../widgets/ingredient_card.dart';
+import '../widgets/rewarded_prompt.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -52,9 +53,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _scan() async {
-    if (ref.read(scansUsedProvider) >= kMaxScansPerSession) {
+    if (ref.read(scanQuotaProvider).dailyLeft <= 0) {
       _toast(
-        'Scan limit reached ($kMaxScansPerSession per session). Pick ingredients manually.',
+        'Daily scan limit reached ($kMaxScansPerDay). Pick ingredients manually.',
       );
       return;
     }
@@ -70,6 +71,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _findRecipes() async {
+    if (!await ensureQuestionQuota(context, ref)) return;
+    if (!mounted) return;
     final selected = ref.read(pantryProvider).selected.toList();
     final deck = ref.read(deckProvider.notifier);
     final work = deck.generate(selected);
@@ -337,9 +340,7 @@ class _SettingsSheet extends ConsumerWidget {
               ),
             ),
           ),
-          row('Recipes (Groq)', Config.groqApiKey.isNotEmpty),
-          row('Vision fallback (Gemini)', Config.geminiApiKey.isNotEmpty),
-          row('Dish photos (Pexels)', Config.pexelsApiKey.isNotEmpty),
+          row('AI recipes, scans & photos (Supabase)', Config.supabaseEnabled),
           row('Meal history (Supabase)', Config.supabaseEnabled),
           ListTile(
             leading: const Icon(Icons.restart_alt),

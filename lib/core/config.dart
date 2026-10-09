@@ -1,17 +1,11 @@
 import 'dart:io';
 
 /// Build-time configuration. Supply with `--dart-define-from-file=env.json`.
-/// Client-side keys can be extracted from the app binary: for production,
-/// route Groq/Gemini/Pexels calls through a Supabase Edge Function instead.
+/// Only public values belong here: vendor API keys (Groq/Gemini/Pexels) live
+/// in Supabase secrets and are used by the Edge Functions in supabase/functions.
 class Config {
-  static const groqApiKey = String.fromEnvironment('GROQ_API_KEY');
-  static const geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
-  static const pexelsApiKey = String.fromEnvironment('PEXELS_API_KEY');
   static const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
-
-  static const groqModel = 'llama-3.3-70b-versatile';
-  static const geminiModel = 'gemini-2.5-flash';
 
   static bool get supabaseEnabled =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
@@ -23,10 +17,16 @@ class Config {
   static String get interstitialAdUnit => Platform.isAndroid
       ? 'ca-app-pub-3940256099942544/1033173712'
       : 'ca-app-pub-3940256099942544/4411468910';
+  static String get rewardedAdUnit => Platform.isAndroid
+      ? 'ca-app-pub-3940256099942544/5224354917'
+      : 'ca-app-pub-3940256099942544/1712485313';
 }
 
 const kMaxIngredients = 3;
 const kMaxScansPerSession = 3;
+const kMaxScansPerDay = 20;
 const kLocalConfidence = 0.7;
 const kAdEverySwipes = 4;
 const kPointsPerMeal = 50;
+const kFreeQuestionsPerDay = 30;
+const kMaxQuestionsPerDay = 50;

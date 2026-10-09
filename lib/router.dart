@@ -5,9 +5,12 @@ import 'screens/cook_screen.dart';
 import 'screens/deck_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/scan_screen.dart';
+import 'screens/splash_screen.dart';
 
 final router = GoRouter(
+  initialLocation: '/splash',
   routes: [
+    GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
     GoRoute(path: '/', builder: (_, _) => const HomeScreen()),
     GoRoute(path: '/scan', builder: (_, _) => const ScanScreen()),
     GoRoute(path: '/deck', builder: (_, _) => const DeckScreen()),

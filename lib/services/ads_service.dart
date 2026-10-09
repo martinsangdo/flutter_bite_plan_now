@@ -4,7 +4,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 import '../core/config.dart';
 
-/// Owns the interstitial: preloads one, shows it on every 4th swipe or deck reload.
+/// Owns the interstitial (preloaded, shown on every 4th swipe or deck reload)
+/// and the rewarded ad that unlocks extra scans.
 class AdsService {
   InterstitialAd? _ready;
   bool _loading = false;
@@ -39,6 +40,52 @@ class AdsService {
   }
 
   Future<void> onDeckReload() => _show();
+
+  RewardedAd? _rewarded;
+  bool _loadingRewarded = false;
+
+  void preloadRewarded() {
+    if (_rewarded != null || _loadingRewarded) return;
+    _loadingRewarded = true;
+    RewardedAd.load(
+      adUnitId: Config.rewardedAdUnit,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewarded = ad;
+          _loadingRewarded = false;
+        },
+        onAdFailedToLoad: (_) => _loadingRewarded = false,
+      ),
+    );
+  }
+
+  /// Shows a rewarded ad; completes true only if the user earned the reward.
+  /// False when no ad is ready (one is requested for next time) or it failed.
+  Future<bool> showRewarded() {
+    final ad = _rewarded;
+    if (ad == null) {
+      preloadRewarded();
+      return Future.value(false);
+    }
+    _rewarded = null;
+    var earned = false;
+    final done = Completer<bool>();
+    ad.fullScreenContentCallback = FullScreenContentCallback(
+      onAdDismissedFullScreenContent: (ad) {
+        ad.dispose();
+        preloadRewarded();
+        done.complete(earned);
+      },
+      onAdFailedToShowFullScreenContent: (ad, _) {
+        ad.dispose();
+        preloadRewarded();
+        done.complete(false);
+      },
+    );
+    ad.show(onUserEarnedReward: (_, _) => earned = true);
+    return done.future;
+  }
 
   Future<void> _show() {
     final ad = _ready;
